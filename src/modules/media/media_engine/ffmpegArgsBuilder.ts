@@ -29,14 +29,11 @@ export const buildFfmpegArgs = (
     input: string,
     output: string,
 ): string[] => {
-    const baseInput = `/data/${path.basename(input)}`;
-    const baseOutput = `/data/${path.basename(output)}`;
-
     const builder = JOB_ARG_BUILDERS[jobType];
 
     if (!builder) {
         throw new Error(`Unsupported media type: ${jobType}`);
     }
 
-    return builder(baseInput, baseOutput);
+    return builder(input, output);
 };

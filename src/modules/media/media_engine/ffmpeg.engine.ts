@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import path from "path";
 import { buildFfmpegArgs, JobType } from "./ffmpegArgsBuilder";
+import { PATHS } from "../../../paths";
 
 type MediaJob = {
     type: JobType;
@@ -17,13 +18,11 @@ const resolveOutputPath = (job: MediaJob): string => {
 
     const ext = OUTPUT_EXT[job.type];
     const name = path.basename(job.inputPath, path.extname(job.inputPath));
-    return path.resolve(
-        path.dirname(job.inputPath),
-        `${name}_${job.type}.${ext}`,
-    );
+
+    return path.join(PATHS.processed, `${name}_${job.type}.${ext}`);
 };
 
-export const processMedia = (job: MediaJob): Promise<void> => {
+export const processMediaEngine = (job: MediaJob): Promise<string> => {
     return new Promise((resolve, reject) => {
         const input = path.resolve(job.inputPath);
         const output = resolveOutputPath(job);
@@ -31,15 +30,22 @@ export const processMedia = (job: MediaJob): Promise<void> => {
         const inputDir = path.dirname(input);
         const outputDir = path.dirname(output);
 
-        const ffmpegArgs = buildFfmpegArgs(job.type, input, output);
+        const containerInput = `/input/${path.basename(input)}`;
+        const containerOutput = `/output/${path.basename(output)}`;
+
+        const ffmpegArgs = buildFfmpegArgs(
+            job.type,
+            containerInput,
+            containerOutput,
+        );
 
         const ffmpeg = spawn("podman", [
             "run",
             "--rm",
             "-v",
-            `${inputDir}:/data`,
+            `${inputDir}:/input:ro,z`,
             "-v",
-            `${outputDir}:/data`,
+            `${outputDir}:/output:z`,
             "jrottenberg/ffmpeg:4.4-alpine",
             ...ffmpegArgs,
         ]);
@@ -54,7 +60,7 @@ export const processMedia = (job: MediaJob): Promise<void> => {
 
         ffmpeg.on("close", (code) => {
             if (code === 0) {
-                resolve();
+                resolve(output);
             } else {
                 reject(
                     new Error(
