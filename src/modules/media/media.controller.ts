@@ -4,6 +4,7 @@ import multer from "multer";
 import { processMediaEngine } from "./media_engine/ffmpeg.engine";
 import { JobType } from "./media_engine/ffmpegArgsBuilder";
 import fs from "fs";
+import { jobStore } from "./job.store";
 
 export const processMedia = (req: Request, res: Response) => {
     upload.single("video")(req, res, async (error) => {
@@ -29,20 +30,34 @@ export const processMedia = (req: Request, res: Response) => {
 
         const inputPath = req.file.path;
 
+        jobStore.create(jobId);
+
         res.status(202).json({
             jobId,
             status: "Accepted",
-            message: "Job queued. Processing in background",
+            pollUrl: `/jobs/${jobId}`,
         });
+
+        jobStore.update(jobId, { status: "processing" });
 
         processMediaEngine({ type: jobType, inputPath: inputPath })
             .then((outputPath) => {
+                jobStore.update(jobId, {
+                    status: "completed",
+                    outputPath: outputPath,
+                });
+
                 console.log(`[job:${jobId}] done → ${outputPath}`);
 
                 fs.unlink(inputPath, () => {});
             })
             .catch((err) => {
-                console.error(`[job:${jobId}] failed:`, err.message);
+                const error =
+                    err instanceof Error ? err.message : "Unknown Error";
+
+                jobStore.update(jobId, { status: "failed", error: error });
+
+                console.error(`[job:${jobId}] failed:`, error);
                 fs.unlink(inputPath, () => {});
             });
     });
