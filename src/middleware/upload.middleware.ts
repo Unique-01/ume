@@ -1,7 +1,7 @@
 import multer from "multer";
 import path from "path";
 import * as crypto from "node:crypto";
-import { PATHS } from "../paths"; // ← was: path.join(__dirname, "tmp/uploads/")
+import { PATHS } from "../paths";
 
 const storage = multer.diskStorage({
     destination(_req, _file, callback) {

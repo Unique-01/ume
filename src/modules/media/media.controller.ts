@@ -25,36 +25,25 @@ export const processMedia = (req: Request, res: Response) => {
             });
         }
 
+        const jobId = crypto.randomUUID();
+
         const inputPath = req.file.path;
 
-        try {
-            const outputPath = await processMediaEngine({
-                type: jobType,
-                inputPath: inputPath,
+        res.status(202).json({
+            jobId,
+            status: "Accepted",
+            message: "Job queued. Processing in background",
+        });
+
+        processMediaEngine({ type: jobType, inputPath: inputPath })
+            .then((outputPath) => {
+                console.log(`[job:${jobId}] done → ${outputPath}`);
+
+                fs.unlink(inputPath, () => {});
+            })
+            .catch((err) => {
+                console.error(`[job:${jobId}] failed:`, err.message);
+                fs.unlink(inputPath, () => {});
             });
-
-            res.download(
-                outputPath,
-                `processed_${req.file.originalname}`,
-                (downloadErr) => {
-                    if (downloadErr) {
-                        console.error("Download error", downloadErr.message);
-                    }
-
-                    fs.unlink(inputPath, () => {});
-                    fs.unlink(outputPath, () => {});
-                },
-            );
-        } catch (processingErr) {
-            fs.unlink(inputPath, () => {});
-
-            const message =
-                processingErr instanceof Error
-                    ? processingErr.message
-                    : "Unknown processing error";
-
-            console.error("Processing failed:", message);
-            return res.status(500).json({ error: message });
-        }
     });
 };
