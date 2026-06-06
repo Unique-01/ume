@@ -5,6 +5,7 @@ import { processMediaEngine } from "./media_engine/ffmpeg.engine";
 import { JobType } from "./media_engine/ffmpegArgsBuilder";
 import fs from "fs";
 import { jobStore } from "./job.store";
+import { enqueue } from "./job.queue";
 
 export const processMedia = (req: Request, res: Response) => {
     upload.single("video")(req, res, async (error) => {
@@ -38,27 +39,6 @@ export const processMedia = (req: Request, res: Response) => {
             pollUrl: `/jobs/${jobId}`,
         });
 
-        jobStore.update(jobId, { status: "processing" });
-
-        processMediaEngine({ type: jobType, inputPath: inputPath })
-            .then((outputPath) => {
-                jobStore.update(jobId, {
-                    status: "completed",
-                    outputPath: outputPath,
-                });
-
-                console.log(`[job:${jobId}] done → ${outputPath}`);
-
-                fs.unlink(inputPath, () => {});
-            })
-            .catch((err) => {
-                const error =
-                    err instanceof Error ? err.message : "Unknown Error";
-
-                jobStore.update(jobId, { status: "failed", error: error });
-
-                console.error(`[job:${jobId}] failed:`, error);
-                fs.unlink(inputPath, () => {});
-            });
+        enqueue({ jobId, type: jobType, inputPath: inputPath });
     });
 };

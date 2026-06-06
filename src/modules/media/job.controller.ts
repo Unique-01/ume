@@ -19,7 +19,6 @@ export const getJobStatus = (req: Request, res: Response) => {
     }
 
     const outputPath = job.outputPath as string;
-    console.log(outputPath)
 
     if (!fs.existsSync(outputPath)) {
         return res
