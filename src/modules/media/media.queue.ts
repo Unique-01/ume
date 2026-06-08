@@ -43,29 +43,3 @@ export const mediaQueue = new Bull<MediaJobPayload>("media-processing", {
         }
     },
 });
-
-mediaQueue.process(2, async (job: Job<MediaJobPayload>) => {
-    const { type, inputPath } = job.data;
-
-    console.log(`[job:${job.id}] processing`);
-
-    try {
-        const outputPath = await processMediaEngine({
-            type: type,
-            inputPath: inputPath,
-        });
-        console.log(`[job:${job.id}] completed`);
-        return outputPath;
-    } catch (error) {
-        fs.unlink(inputPath, () => {});
-        throw error;
-    }
-});
-
-mediaQueue.on("completed", (job) => {
-    fs.unlink(job.data.inputPath, () => {});
-});
-
-mediaQueue.on("failed", (job, err) => {
-    console.error(`[job:${job.id}] failed:`, err.message);
-});

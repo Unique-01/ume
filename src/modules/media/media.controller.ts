@@ -4,6 +4,7 @@ import multer from "multer";
 import { JobType } from "./media_engine/ffmpegArgsBuilder";
 import fs from "fs";
 import { mediaQueue } from "./media.queue";
+// import { MAX_ATTEMPTS } from "./media.worker";
 
 export const processMedia = (req: Request, res: Response) => {
     upload.single("video")(req, res, async (error) => {
@@ -33,7 +34,11 @@ export const processMedia = (req: Request, res: Response) => {
                     type: jobType,
                     inputPath: req.file.path,
                 },
-                { jobId: jobId },
+                {
+                    jobId: jobId,
+                    attempts: 3,
+                    backoff: { type: "exponential", delay: 3000 },
+                },
             );
         } catch (err) {
             fs.unlink(req.file.path, () => {});
