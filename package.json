@@ -21,8 +21,10 @@
     },
     "type": "commonjs",
     "dependencies": {
+        "bull": "^4.16.5",
         "dotenv": "^17.4.2",
         "express": "^5.2.1",
+        "ioredis": "^5.11.1",
         "multer": "^2.1.1",
         "tsx": "^4.22.4"
     },

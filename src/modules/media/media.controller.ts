@@ -1,11 +1,9 @@
 import { Request, Response } from "express";
 import { upload } from "../../middleware/upload.middleware";
 import multer from "multer";
-import { processMediaEngine } from "./media_engine/ffmpeg.engine";
 import { JobType } from "./media_engine/ffmpegArgsBuilder";
 import fs from "fs";
-import { jobStore } from "./job.store";
-import { enqueue } from "./job.queue";
+import { mediaQueue } from "./media.queue";
 
 export const processMedia = (req: Request, res: Response) => {
     upload.single("video")(req, res, async (error) => {
@@ -29,16 +27,23 @@ export const processMedia = (req: Request, res: Response) => {
 
         const jobId = crypto.randomUUID();
 
-        const inputPath = req.file.path;
-
-        jobStore.create(jobId);
+        try {
+            await mediaQueue.add(
+                {
+                    type: jobType,
+                    inputPath: req.file.path,
+                },
+                { jobId: jobId },
+            );
+        } catch (err) {
+            fs.unlink(req.file.path, () => {});
+            return res.status(503).json({ message: "Server Unavailable" });
+        }
 
         res.status(202).json({
             jobId,
             status: "Accepted",
             pollUrl: `/jobs/${jobId}`,
         });
-
-        enqueue({ jobId, type: jobType, inputPath: inputPath });
     });
 };

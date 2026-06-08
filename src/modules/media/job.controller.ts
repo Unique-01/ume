@@ -1,33 +1,42 @@
 import { Request, Response } from "express";
-import { Job, jobStore } from "./job.store";
 import fs from "fs";
 import path from "path";
+import { mediaQueue } from "./media.queue";
 
-export const getJobStatus = (req: Request, res: Response) => {
+export const getJobStatus = async (req: Request, res: Response) => {
     const jobId = req.params.id as string;
-    const job = jobStore.get(jobId);
+
+    const job = await mediaQueue.getJob(jobId);
+
     if (!job) {
         return res.status(400).json({ message: "Job not found" });
     }
 
-    if (job.status !== "completed") {
-        return res.json({
-            jobId: job.id,
-            status: job.status,
-            ...(job.error && { error: job.error }),
+    const jobState = await job.getState();
+
+    if (jobState === "completed") {
+        const outputPath = job.returnvalue as string;
+
+        if (!fs.existsSync(outputPath)) {
+            return res
+                .status(410)
+                .json({ message: "Output file is no longer available" });
+        }
+        return res.download(outputPath, path.basename(outputPath), (downloadErr) => {
+            if (downloadErr)
+                console.error("Download Error", downloadErr.message);
+
+            fs.unlink(outputPath, () => {});
         });
     }
 
-    const outputPath = job.outputPath as string;
-
-    if (!fs.existsSync(outputPath)) {
-        return res
-            .status(410)
-            .json({ message: "Output file is no longer available" });
+    if (jobState === "failed") {
+        return res.status(500).json({
+            jobId: job.id,
+            status: "failed",
+            error: job.failedReason,
+        });
     }
-    res.download(outputPath, path.basename(outputPath), (downloadErr) => {
-        if (downloadErr) console.error("Download Error", downloadErr.message);
 
-        fs.unlink(outputPath, () => {});
-    });
+    res.json({ jobId: job.id, status: jobState });
 };
