@@ -1,5 +1,6 @@
 import "./modules/media/media.worker";
 import { checkRedisConnection, mediaQueue } from "./modules/media/media.queue";
+import { workerAbortController } from "./modules/media/media.worker";
 
 const start = async () => {
     try {
@@ -16,6 +17,7 @@ start();
 
 const shutdown = async () => {
     console.log("[worker] shutting down");
+    workerAbortController.abort();
     await mediaQueue.close();
     process.exit(0);
 };

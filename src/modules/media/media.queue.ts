@@ -1,7 +1,5 @@
-import Bull, { Job } from "bull";
+import Bull from "bull";
 import { JobType } from "./media_engine/ffmpegArgsBuilder";
-import { processMediaEngine } from "./media_engine/ffmpeg.engine";
-import fs from "fs";
 import Redis from "ioredis";
 
 export type MediaJobPayload = {

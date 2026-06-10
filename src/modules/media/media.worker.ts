@@ -20,13 +20,18 @@ export const deadLetterQueue = new Bull("media-dlq", {
     },
 });
 
+export const workerAbortController = new AbortController();
+
 mediaQueue.process(2, async (job: Job<MediaJobPayload>) => {
     const { type, inputPath } = job.data;
     console.log(
         `[job:${job.id}] attempt ${job.attemptsMade + 1}/${MAX_ATTEMPTS}`,
     );
 
-    const outputPath = await processMediaEngine({ type, inputPath });
+    const outputPath = await processMediaEngine(
+        { type, inputPath },
+        workerAbortController.signal,
+    );
     console.log(`[job:${job.id}] completed`);
 
     return outputPath;
@@ -50,7 +55,7 @@ mediaQueue.on("failed", async (job, err) => {
             reason: err.message,
             failedAt: new Date().toISOString(),
         });
-    }
 
-    fs.unlink(job.data.inputPath, () => {});
+        fs.unlink(job.data.inputPath, () => {});
+    }
 });
