@@ -30,19 +30,18 @@ export const processMedia = (req: Request, res: Response) => {
 
         try {
             await mediaQueue.add(
+                "transcode",
                 {
                     type: jobType,
                     inputPath: req.file.path,
                 },
                 {
                     jobId: jobId,
-                    attempts: 3,
-                    backoff: { type: "exponential", delay: 3000 },
                 },
             );
         } catch (err) {
             fs.unlink(req.file.path, () => {});
-            return res.status(503).json({ message: "Server Unavailable" });
+            return res.status(503).json({ message: "Service Unavailable" });
         }
 
         res.status(202).json({
