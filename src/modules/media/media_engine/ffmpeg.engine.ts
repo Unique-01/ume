@@ -28,6 +28,7 @@ export const processMediaEngine = (
     signal?: AbortSignal,
 ): Promise<string> => {
     return new Promise((resolve, reject) => {
+        let stderrBuffer = "";
         const input = path.resolve(job.inputPath);
         const output = resolveOutputPath(job);
 
@@ -79,6 +80,7 @@ export const processMediaEngine = (
 
         ffmpeg.stderr?.on("data", (data) => {
             console.log("[ffmpeg]", data.toString());
+            stderrBuffer += data.toString();
         });
 
         ffmpeg.on("error", (err) => {
@@ -95,9 +97,17 @@ export const processMediaEngine = (
                 if (fs.existsSync(output)) {
                     fs.unlinkSync(output);
                 }
+
+                const errorDetail =
+                    stderrBuffer
+                        .split("\n")
+                        .map((l) => l.trim())
+                        .filter(Boolean)
+                        .at(-1) ?? "no error output";
+
                 reject(
                     new Error(
-                        `ffmpeg exited with code ${code ?? "null (killed by signal)"}`,
+                        `ffmpeg exited with code ${code ?? "null"}: ${errorDetail}`,
                     ),
                 );
             }
