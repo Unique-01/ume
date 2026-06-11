@@ -10,6 +10,16 @@ type MediaJob = {
     outputPath?: string;
 };
 
+type FfmpegProgressInfo = {
+    percent: number;
+    time?: string;
+    duration?: string;
+    frame?: number;
+    fps?: string;
+    bitrate?: string;
+    speed?: string;
+};
+
 const OUTPUT_EXT: Record<JobType, string> = {
     transcode: "mp4",
 };
@@ -26,9 +36,21 @@ const resolveOutputPath = (job: MediaJob): string => {
 export const processMediaEngine = (
     job: MediaJob,
     signal?: AbortSignal,
+    onProgress?: (progress: FfmpegProgressInfo) => void,
 ): Promise<string> => {
     return new Promise((resolve, reject) => {
         let stderrBuffer = "";
+        let durationSeconds = 0;
+        let durationString: string | undefined;
+        let lastReportedPercent = -1;
+
+        const parseTimecode = (timecode: string): number => {
+            const [hours, minutes, seconds] = timecode.split(":");
+            return (
+                Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds)
+            );
+        };
+
         const input = path.resolve(job.inputPath);
         const output = resolveOutputPath(job);
 
@@ -79,8 +101,48 @@ export const processMediaEngine = (
         }
 
         ffmpeg.stderr?.on("data", (data) => {
-            console.log("[ffmpeg]", data.toString());
-            stderrBuffer += data.toString();
+            const chunk = data.toString();
+            console.log("[ffmpeg]", chunk);
+            stderrBuffer += chunk;
+
+            const durationMatch = /Duration:\s*([0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{2})/.exec(chunk);
+            if (durationMatch) {
+                durationString = durationMatch[1];
+                durationSeconds = parseTimecode(durationString);
+            }
+
+            for (const timeMatch of chunk.matchAll(/time=([0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{2})/g)) {
+                if (!durationSeconds) {
+                    continue;
+                }
+
+                const time = timeMatch[1];
+                const elapsed = parseTimecode(time);
+                const percent = Math.min(
+                    100,
+                    Math.max(0, (elapsed / durationSeconds) * 100),
+                );
+                const roundedPercent = Math.round(percent);
+                if (roundedPercent === lastReportedPercent) {
+                    continue;
+                }
+                lastReportedPercent = roundedPercent;
+
+                const frameMatch = /frame=\s*(\d+)/.exec(chunk);
+                const fpsMatch = /fps=\s*([\d\.]+)/.exec(chunk);
+                const bitrateMatch = /bitrate=\s*([\d\.kmg\/]+)\b/.exec(chunk);
+                const speedMatch = /speed=\s*([\d\.x]+)/.exec(chunk);
+
+                onProgress?.({
+                    percent: roundedPercent,
+                    time,
+                    duration: durationString,
+                    frame: frameMatch ? Number(frameMatch[1]) : undefined,
+                    fps: fpsMatch?.[1],
+                    bitrate: bitrateMatch?.[1],
+                    speed: speedMatch?.[1],
+                });
+            }
         });
 
         ffmpeg.on("error", (err) => {

@@ -21,9 +21,21 @@ export const mediaWorker = new Worker<MediaJobPayload>(
             `[job:${job.id}] attempt ${job.attemptsMade + 1}/${MAX_ATTEMPTS}`,
         );
 
+        await job.updateProgress({ percent: 0 });
+
         const outputPath = await processMediaEngine(
             { type, inputPath },
             workerAbortController.signal,
+            async (progress) => {
+                try {
+                    await job.updateProgress(progress);
+                } catch (err) {
+                    console.error(
+                        `[job:${job.id}] failed to update progress`,
+                        err instanceof Error ? err.message : err,
+                    );
+                }
+            },
         );
         console.log(`[job:${job.id}] completed`);
 

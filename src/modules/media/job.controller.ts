@@ -13,6 +13,7 @@ export const getJobStatus = async (req: Request, res: Response) => {
     }
 
     const jobState = await job.getState();
+    const progress = job.progress ?? null;
 
     if (jobState === "completed") {
         const outputPath = job.returnvalue as string;
@@ -35,8 +36,9 @@ export const getJobStatus = async (req: Request, res: Response) => {
             jobId: job.id,
             status: "failed",
             error: job.failedReason,
+            progress,
         });
     }
 
-    res.json({ jobId: job.id, status: jobState });
+    res.json({ jobId: job.id, status: jobState, progress });
 };
