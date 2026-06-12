@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
-import fs from "fs";
-import path from "path";
 import { mediaQueue } from "./media.queue";
+import { getPresignedUrl } from "../../storage.service";
 
 export const getJobStatus = async (req: Request, res: Response) => {
     const jobId = req.params.id as string;
@@ -9,25 +8,20 @@ export const getJobStatus = async (req: Request, res: Response) => {
     const job = await mediaQueue.getJob(jobId);
 
     if (!job) {
-        return res.status(400).json({ message: "Job not found" });
+        return res.status(404).json({ message: "Job not found" });
     }
 
     const jobState = await job.getState();
     const progress = job.progress ?? null;
 
     if (jobState === "completed") {
-        const outputPath = job.returnvalue as string;
+        const r2Key = job.returnvalue as string;
+        const downloadUrl = await getPresignedUrl(r2Key);
 
-        if (!fs.existsSync(outputPath)) {
-            return res
-                .status(410)
-                .json({ message: "Output file is no longer available" });
-        }
-        return res.download(outputPath, path.basename(outputPath), (downloadErr) => {
-            if (downloadErr)
-                console.error("Download Error", downloadErr.message);
-
-            fs.unlink(outputPath, () => {});
+        return res.json({
+            jobId: job.id,
+            status: jobState,
+            downloadUrl,
         });
     }
 

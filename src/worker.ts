@@ -1,3 +1,4 @@
+import "./instrument";
 import "./modules/media/media.worker";
 import { checkRedisConnection } from "./modules/media/media.queue";
 import {

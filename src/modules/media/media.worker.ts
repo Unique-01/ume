@@ -1,13 +1,8 @@
-// import Bull, { Job } from "bull";
 import { Worker, Job } from "bullmq";
-import Redis from "ioredis";
-import {
-    MediaJobPayload,
-    REDIS_CONFIG,
-    deadLetterQueue,
-} from "./media.queue";
+import { MediaJobPayload, REDIS_CONFIG, deadLetterQueue } from "./media.queue";
 import { processMediaEngine } from "./media_engine/ffmpeg.engine";
 import fs from "fs";
+import { uploadToR2 } from "../../storage.service";
 
 export const MAX_ATTEMPTS = 3;
 
@@ -37,9 +32,13 @@ export const mediaWorker = new Worker<MediaJobPayload>(
                 }
             },
         );
-        console.log(`[job:${job.id}] completed`);
+        console.log(`[job:${job.id}] ffmpeg done, uploading to R2...`);
+        const r2Key = await uploadToR2(outputPath);
+        console.log(`[job:${job.id}] uploaded to R2 at key ${r2Key}`);
 
-        return outputPath;
+        fs.unlink(outputPath, () => {});
+
+        return r2Key;
     },
     {
         connection: REDIS_CONFIG,
