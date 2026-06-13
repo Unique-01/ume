@@ -9,10 +9,10 @@ import { mediaQueue } from "./media.queue";
 export const processMedia = (req: Request, res: Response) => {
     upload.single("video")(req, res, async (error) => {
         if (error instanceof multer.MulterError) {
-            return res.status(400).json({ message: error.message });
+            return res.status(422).json({ message: error.message });
         }
         if (error) {
-            return res.status(400).json({ message: error.message });
+            return res.status(415).json({ message: error.message });
         }
         if (!req.file) {
             return res.status(400).json({ message: "No video file provided" });

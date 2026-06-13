@@ -3,6 +3,7 @@ import path from "path";
 import { buildFfmpegArgs, JobType } from "./ffmpegArgsBuilder";
 import { PATHS } from "../../../paths";
 import fs from "fs";
+import { UnrecoverableError } from "bullmq";
 
 type MediaJob = {
     type: JobType;
@@ -105,13 +106,18 @@ export const processMediaEngine = (
             console.log("[ffmpeg]", chunk);
             stderrBuffer += chunk;
 
-            const durationMatch = /Duration:\s*([0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{2})/.exec(chunk);
+            const durationMatch =
+                /Duration:\s*([0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{2})/.exec(
+                    chunk,
+                );
             if (durationMatch) {
                 durationString = durationMatch[1];
                 durationSeconds = parseTimecode(durationString);
             }
 
-            for (const timeMatch of chunk.matchAll(/time=([0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{2})/g)) {
+            for (const timeMatch of chunk.matchAll(
+                /time=([0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{2})/g,
+            )) {
                 if (!durationSeconds) {
                     continue;
                 }
@@ -167,11 +173,27 @@ export const processMediaEngine = (
                         .filter(Boolean)
                         .at(-1) ?? "no error output";
 
-                reject(
-                    new Error(
-                        `ffmpeg exited with code ${code ?? "null"}: ${errorDetail}`,
-                    ),
-                );
+                const isClientError =
+                    /Invalid data found when processing input/.test(
+                        stderrBuffer,
+                    ) ||
+                    /no streams/.test(stderrBuffer) ||
+                    /End of file/.test(stderrBuffer) ||
+                    /Invalid argument/.test(stderrBuffer);
+
+                if (isClientError) {
+                    reject(
+                        new UnrecoverableError(
+                            `CLIENT_ERROR: ffmpeg exited with code ${code}: ${errorDetail}`,
+                        ),
+                    );
+                } else {
+                    reject(
+                        new Error(
+                            `SERVER_ERROR: ffmpeg exited with code ${code}: ${errorDetail}`,
+                        ),
+                    );
+                }
             }
         });
     });

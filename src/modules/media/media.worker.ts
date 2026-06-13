@@ -53,10 +53,20 @@ mediaWorker.on("completed", (job) => {
 mediaWorker.on("failed", async (job, err) => {
     if (!job) return;
 
+    const isUnrecoverable = err.name === "UnrecoverableError";
+
     console.error(
         `[job:${job.id}] attempt ${job.attemptsMade}/${MAX_ATTEMPTS} failed:`,
         err.message,
     );
+
+    if (isUnrecoverable) {
+        console.error(
+            `[job:${job.id}] unrecoverable client error, skipping DLQ`,
+        );
+        fs.unlink(job.data.inputPath, () => {});
+        return;
+    }
 
     if (job.attemptsMade >= MAX_ATTEMPTS) {
         console.error(`[job:${job.id}] moving to DLQ`);

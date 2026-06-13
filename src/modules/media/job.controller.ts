@@ -26,10 +26,14 @@ export const getJobStatus = async (req: Request, res: Response) => {
     }
 
     if (jobState === "failed") {
-        return res.status(500).json({
+        const isClientError = job.failedReason.startsWith("CLIENT_ERROR:");
+
+        return res.status(isClientError ? 422 : 500).json({
             jobId: job.id,
             status: "failed",
-            error: job.failedReason,
+            error: job.failedReason
+                ?.replace(/^CLIENT_ERROR|SERVER_ERROR:/, "")
+                .trim(),
             progress,
         });
     }
