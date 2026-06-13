@@ -20,9 +20,16 @@ const s3 = new S3Client({
 
 const BUCKET = process.env.R2_BUCKET_NAME;
 const EXPIRES_IN = Number(process.env.R2_PRESIGNED_URL_EXPIRES_IN) || 86400;
+const CONTENT_TYPES: Record<string, string> = {
+    mp4: "video/mp4",
+    jpg: "image/jpeg",
+    gif: "image/gif",
+};
 
 export const uploadToR2 = async (localPath: string): Promise<string> => {
     const key = `processed/${path.basename(localPath)}`;
+    const ext = path.extname(localPath).slice(1).toLowerCase();
+    const contentType = CONTENT_TYPES[ext] ?? "application/octet-stream";
     const fileStream = fs.createReadStream(localPath);
 
     await s3.send(
@@ -30,7 +37,7 @@ export const uploadToR2 = async (localPath: string): Promise<string> => {
             Bucket: BUCKET,
             Key: key,
             Body: fileStream,
-            ContentType: "video/mp4",
+            ContentType: contentType,
         }),
     );
     return key;

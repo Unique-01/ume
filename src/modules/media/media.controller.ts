@@ -30,7 +30,7 @@ export const processMedia = (req: Request, res: Response) => {
 
         try {
             await mediaQueue.add(
-                "transcode",
+                jobType,
                 {
                     type: jobType,
                     inputPath: req.file.path,

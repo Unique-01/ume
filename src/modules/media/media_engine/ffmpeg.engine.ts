@@ -23,6 +23,8 @@ type FfmpegProgressInfo = {
 
 const OUTPUT_EXT: Record<JobType, string> = {
     transcode: "mp4",
+    thumbnail: "jpg",
+    compress: "mp4",
 };
 
 const resolveOutputPath = (job: MediaJob): string => {
