@@ -4,6 +4,7 @@ import { ExpressAdapter } from "@bull-board/express";
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { deadLetterQueue, mediaQueue } from "./modules/media/media.queue";
+import { adminRateLimiter } from "./middleware/rateLimiter.middleware";
 
 const app = express();
 
@@ -15,7 +16,7 @@ createBullBoard({
     serverAdapter,
 });
 
-app.use("/admin/queues", serverAdapter.getRouter());
+app.use("/admin/queues", adminRateLimiter, serverAdapter.getRouter());
 app.use("/api/v1/media/", mediaRoutes);
 
 app.get("/health", (req, res) => {

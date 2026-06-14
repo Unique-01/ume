@@ -1,8 +1,9 @@
 import { Worker, Job } from "bullmq";
-import { MediaJobPayload, REDIS_CONFIG, deadLetterQueue } from "./media.queue";
+import { MediaJobPayload, deadLetterQueue } from "./media.queue";
 import { processMediaEngine } from "./media_engine/ffmpeg.engine";
 import fs from "fs";
 import { uploadToR2 } from "../../storage.service";
+import { REDIS_CONFIG } from "../../config/redis.config";
 
 export const MAX_ATTEMPTS = 3;
 
