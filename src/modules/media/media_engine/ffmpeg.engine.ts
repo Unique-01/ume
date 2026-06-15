@@ -4,6 +4,9 @@ import { buildFfmpegArgs, JobType } from "./ffmpegArgsBuilder";
 import { PATHS } from "../../../paths";
 import fs from "fs";
 import { UnrecoverableError } from "bullmq";
+import logger from "../../../lib/logger";
+
+const mediaEngineLogger = logger.child({ module: "ffmpeg" });
 
 type MediaJob = {
     type: JobType;
@@ -85,7 +88,7 @@ export const processMediaEngine = (
         ]);
 
         const onAbort = () => {
-            console.log(`[ffmpeg] abort signal received --> killing podman`);
+            mediaEngineLogger.info("abort signal received --> killing podman");
 
             ffmpeg.kill("SIGTERM");
             if (fs.existsSync(output)) {
@@ -105,7 +108,7 @@ export const processMediaEngine = (
 
         ffmpeg.stderr?.on("data", (data) => {
             const chunk = data.toString();
-            console.log("[ffmpeg]", chunk);
+            mediaEngineLogger.info({ chunk });
             stderrBuffer += chunk;
 
             const durationMatch =

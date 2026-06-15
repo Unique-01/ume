@@ -4,6 +4,9 @@ import { processMediaEngine } from "./media_engine/ffmpeg.engine";
 import fs from "fs";
 import { uploadToR2 } from "../../storage.service";
 import { REDIS_CONFIG } from "../../config/redis.config";
+import logger from "../../lib/logger";
+
+const workerLogger = logger.child({ module: "worker" });
 
 export const MAX_ATTEMPTS = 3;
 
@@ -13,17 +16,20 @@ export const mediaWorker = new Worker<MediaJobPayload>(
     "media-processing",
     async (job: Job<MediaJobPayload>) => {
         const { type, inputPath } = job.data;
-        console.log(
-            `[job:${job.id}] attempt ${job.attemptsMade + 1}/${MAX_ATTEMPTS}`,
+        workerLogger.info(
+            { jobId: job.id, attempt: job.attemptsMade + 1 },
+            "processing job",
         );
 
         const existingProgress = job.progress as any;
         let outputPath: string;
 
         if (existingProgress?.ffmpegDone && existingProgress?.outputPath) {
-            console.log(
-                `[job:${job.id}] ffmpeg already done, skipping to upload`,
+            workerLogger.info(
+                { jobId: job.id },
+                "ffmpeg already done, skipping to upload",
             );
+
             outputPath = existingProgress.outputPath;
         } else {
             await job.updateProgress({ percent: 0 });
@@ -35,9 +41,12 @@ export const mediaWorker = new Worker<MediaJobPayload>(
                     try {
                         await job.updateProgress(progress);
                     } catch (err) {
-                        console.error(
-                            `[job:${job.id}] failed to update progress`,
-                            err instanceof Error ? err.message : err,
+                        workerLogger.error(
+                            {
+                                jobId: job.id,
+                                err: err instanceof Error ? err.message : err,
+                            },
+                            "failed to update progress",
                         );
                     }
                 },
@@ -47,10 +56,13 @@ export const mediaWorker = new Worker<MediaJobPayload>(
                 ffmpegDone: true,
                 outputPath,
             });
-            console.log(`[job:${job.id}] ffmpeg done, uploading to R2...`);
+            workerLogger.info(
+                { jobId: job.id },
+                "ffmpeg done, uploading to R2...",
+            );
         }
         const r2Key = await uploadToR2(outputPath);
-        console.log(`[job:${job.id}] uploaded to R2 at key ${r2Key}`);
+        workerLogger.info({ jobId: job.id, r2Key }, "uploaded to R2");
 
         fs.unlink(outputPath, () => {});
 
@@ -71,21 +83,27 @@ mediaWorker.on("failed", async (job, err) => {
 
     const isUnrecoverable = err.name === "UnrecoverableError";
 
-    console.error(
-        `[job:${job.id}] attempt ${job.attemptsMade}/${MAX_ATTEMPTS} failed:`,
-        err.message,
+    workerLogger.error(
+        {
+            jobId: job.id,
+            attempt: job.attemptsMade,
+            err: err.message,
+        },
+        "Job failed",
     );
 
     if (isUnrecoverable) {
-        console.error(
-            `[job:${job.id}] unrecoverable client error, skipping DLQ`,
+        workerLogger.error(
+            { jobId: job.id },
+            "unrecoverable client error, skipping DLQ",
         );
+
         fs.unlink(job.data.inputPath, () => {});
         return;
     }
 
     if (job.attemptsMade >= MAX_ATTEMPTS) {
-        console.error(`[job:${job.id}] moving to DLQ`);
+        workerLogger.error({ jobId: job.id }, "moving job to DLQ");
 
         await deadLetterQueue.add("failed-job", {
             originalJobId: job.id,

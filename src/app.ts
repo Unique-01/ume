@@ -5,8 +5,24 @@ import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { deadLetterQueue, mediaQueue } from "./modules/media/media.queue";
 import { adminRateLimiter } from "./middleware/rateLimiter.middleware";
+import { pinoHttp } from "pino-http";
+import logger from "./lib/logger";
 
 const app = express();
+
+app.use(
+    pinoHttp({
+        logger,
+        customLogLevel: (req, res, err) => {
+            if (err || res.statusCode >= 500) return "error";
+            if (res.statusCode >= 400) return "warn";
+            return "info";
+        },
+        customSuccessMessage: (req, res) => {
+            return `${req.method} ${req.url} ${req.statusCode}`;
+        },
+    }),
+);
 
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath("/admin/queues");

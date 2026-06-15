@@ -5,14 +5,17 @@ import {
     workerAbortController,
     mediaWorker,
 } from "./modules/media/media.worker";
+import logger from "./lib/logger";
+
+const workerLogger = logger.child({ module: "worker" });
 
 const start = async () => {
     try {
         await checkRedisConnection();
-        console.log("[worker] Redis connected");
-        console.log("[worker] Listening for jobs...");
+        workerLogger.info("Redis connected");
+        workerLogger.info("Listening for jobs...");
     } catch (err) {
-        console.error("[worker] Redis unavailable:", err);
+        workerLogger.error({ err }, "Redis unavailable");
         process.exit(1);
     }
 };
@@ -20,7 +23,7 @@ const start = async () => {
 start();
 
 const shutdown = async () => {
-    console.log("[worker] shutting down");
+    workerLogger.info("Shutting down");
     workerAbortController.abort();
     await mediaWorker.close();
     process.exit(0);
