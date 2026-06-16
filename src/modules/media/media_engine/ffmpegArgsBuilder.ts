@@ -1,4 +1,4 @@
-import path from "path";
+export const JOB_TYPES = ["transcode", "thumbnail", "compress"] as const;
 
 type ArgBuilder = (baseInput: string, baseOutput: string) => string[];
 
@@ -50,7 +50,7 @@ const JOB_ARG_BUILDERS: Record<string, ArgBuilder> = {
     ],
 };
 
-export type JobType = keyof typeof JOB_ARG_BUILDERS;
+export type JobType = (typeof JOB_TYPES)[number];
 
 export const buildFfmpegArgs = (
     jobType: JobType,
