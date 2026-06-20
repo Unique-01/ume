@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { processMedia } from "./media.controller";
-import { getJobStatus } from "./job.controller";
+import { getJobStatus, streamJobProgress } from "./job.controller";
 import {
     pollRateLimiter,
     uploadRateLimiter,
@@ -18,5 +18,6 @@ router.post(
     processMedia,
 );
 router.get("/jobs/:id", pollRateLimiter, getJobStatus);
+router.get("/jobs/:id/stream", pollRateLimiter, streamJobProgress);
 
 export default router;

@@ -113,5 +113,11 @@ mediaWorker.on("failed", async (job, err) => {
         });
 
         fs.unlink(job.data.inputPath, () => {});
+
+        const checkpoint = job.progress as any;
+        
+        if (checkpoint?.outputPath) {
+            fs.unlink(checkpoint.outputPath, () => {});
+        }
     }
 });
